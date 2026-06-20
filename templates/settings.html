@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Settings - Loyalty Cards{% endblock %}
+{% block content %}
+<h1>System Settings</h1>
+<div class="card">
+    <h2>Expiry Rule</h2>
+    <div class="detail-row">
+        <span class="detail-label">Card Expiry Period</span>
+        <span class="detail-value">{{ expiry_weeks }} weeks from issue date</span>
+    </div>
+    <p style="font-size:0.85rem;color:var(--text-light);margin-top:8px;">
+        Every new card automatically expires {{ expiry_weeks }} weeks after it is issued. No manual input needed.
+    </p>
+</div>
+<div class="card">
+    <h2>Stamp Settings</h2>
+    <div class="detail-row">
+        <span class="detail-label">Stamps Required for Reward</span>
+        <span class="detail-value">{{ stamps_required }}</span>
+    </div>
+</div>
+<div class="card">
+    <h2>QR Code Tickets</h2>
+    <div class="detail-row">
+        <span class="detail-label">Type</span>
+        <span class="detail-value">Single-use (one scan only)</span>
+    </div>
+    <div class="detail-row">
+        <span class="detail-label">Format</span>
+        <span class="detail-value">Unique QR per stamp, printable ticket</span>
+    </div>
+    <p style="font-size:0.85rem;color:var(--text-light);margin-top:8px;">
+        Each QR code is generated fresh and can only be scanned once. After scanning, it is marked as verified and cannot be reused.
+    </p>
+</div>
+<div class="card">
+    <h2>Default Login</h2>
+    <div class="detail-row">
+        <span class="detail-label">Username</span>
+        <span class="detail-value">admin</span>
+    </div>
+    <div class="detail-row">
+        <span class="detail-label">PIN</span>
+        <span class="detail-value">1234</span>
+    </div>
+    <p style="font-size:0.85rem;color:var(--danger);margin-top:8px;">
+        Please change the default PIN after first login by adding a new admin staff member.
+    </p>
+</div>
+{% endblock %}

@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - Loyalty Cards{% endblock %}
+{% block content %}
+<h1>Dashboard</h1>
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-value">{{ total_customers }}</div>
+        <div class="stat-label">Total Customers</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ active_cards }}</div>
+        <div class="stat-label">Active Cards</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ expired_cards }}</div>
+        <div class="stat-label">Expired Cards</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ stamps_today }}</div>
+        <div class="stat-label">Stamps Today</div>
+    </div>
+</div>
+
+<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <h2 style="margin-bottom:0;">Quick Actions</h2>
+    </div>
+    <div class="actions">
+        <a href="{{ url_for('new_customer') }}" class="btn btn-primary">+ New Customer</a>
+        <a href="{{ url_for('customers') }}" class="btn btn-outline">Find Customer</a>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Recent Stamps</h2>
+    {% if recent_stamps %}
+    <table>
+        <thead>
+            <tr>
+                <th>Time</th>
+                <th>Customer</th>
+                <th>Card</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for stamp in recent_stamps %}
+            <tr>
+                <td>{{ stamp['issued_at'][:16] }}</td>
+                <td>{{ stamp['customer_name'] }}</td>
+                <td>{{ stamp['card_number'] }}</td>
+                <td><span class="badge {{ 'badge-used' if stamp['is_used'] else 'badge-active' }}">{{ 'Verified' if stamp['is_used'] else 'Pending' }}</span></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">No stamps recorded yet</div>
+    {% endif %}
+</div>
+{% endblock %}

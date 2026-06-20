@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Add Staff - Loyalty Cards{% endblock %}
+{% block content %}
+<h1>Add Staff Member</h1>
+<div class="card">
+    <form method="POST">
+        <div class="form-group">
+            <label>Full Name *</label>
+            <input type="text" name="name" required placeholder="Staff member name">
+        </div>
+        <div class="form-group">
+            <label>Username *</label>
+            <input type="text" name="username" required placeholder="Login username">
+        </div>
+        <div class="form-group">
+            <label>PIN *</label>
+            <input type="text" name="pin" required placeholder="4-digit PIN" inputmode="numeric" maxlength="6">
+        </div>
+        <div class="form-group">
+            <label style="display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;">
+                <input type="checkbox" name="is_admin" value="1"> Admin access (can manage staff and settings)
+            </label>
+        </div>
+        <div class="actions">
+            <button type="submit" class="btn btn-primary">Add Staff</button>
+            <a href="{{ url_for('staff_list') }}" class="btn btn-outline">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stamp Ticket</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #F8F9FD; }
+        .ticket {
+            max-width: 320px;
+            margin: 20px auto;
+            background: white;
+            border-radius: 16px;
+            padding: 30px 24px;
+            text-align: center;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.1);
+            border: 2px dashed #DDD;
+        }
+        .ticket h1 {
+            font-size: 1.3rem;
+            margin-bottom: 4px;
+            color: #2D3436;
+        }
+        .ticket .subtitle {
+            color: #636E72;
+            font-size: 0.85rem;
+            margin-bottom: 20px;
+        }
+        .qr-container {
+            background: white;
+            padding: 12px;
+            border-radius: 12px;
+            display: inline-block;
+            margin: 16px 0;
+        }
+        .qr-container img { display: block; }
+        .customer-name {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #6C5CE7;
+            margin-bottom: 4px;
+        }
+        .info-line {
+            font-size: 0.8rem;
+            color: #636E72;
+            margin: 4px 0;
+        }
+        .stamp-info {
+            display: inline-block;
+            background: #F0EDFF;
+            color: #6C5CE7;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin: 12px 0;
+        }
+        .token-id {
+            font-family: monospace;
+            font-size: 0.7rem;
+            color: #B2BEC3;
+            margin-top: 16px;
+        }
+        .divider {
+            border: none;
+            border-top: 1px dashed #DDD;
+            margin: 16px 0;
+        }
+        .print-actions {
+            margin: 20px auto;
+            max-width: 320px;
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+        }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            color: white;
+        }
+        .btn-primary { background: #6C5CE7; }
+        .btn-outline { background: transparent; border: 2px solid #6C5CE7; color: #6C5CE7; }
+        @media print {
+            body { background: white; }
+            .print-actions { display: none; }
+            .ticket { box-shadow: none; border: 2px dashed #999; margin: 0 auto; }
+        }
+    </style>
+</head>
+<body>
+    <div class="ticket">
+        <h1>Loyalty Stamp</h1>
+        <p class="subtitle">Scan to verify this stamp</p>
+        <hr class="divider">
+        <div class="customer-name">{{ customer['first_name'] }} {{ customer['last_name'] }}</div>
+        <p class="info-line">Card: {{ card['card_number'] }}</p>
+        <div class="qr-container">
+            <img src="data:image/png;base64,{{ qr_b64 }}" alt="QR Code" width="200" height="200">
+        </div>
+        <div class="stamp-info">Stamp {{ stamp_number }} of {{ stamps_required }}</div>
+        <p class="info-line">Expires: {{ expires_at }}</p>
+        <p class="info-line">Single use only - this code can only be scanned once</p>
+        <hr class="divider">
+        <p class="token-id">{{ token }}</p>
+    </div>
+    <div class="print-actions">
+        <button onclick="window.print()" class="btn btn-primary">Print Ticket</button>
+        <a href="{{ url_for('view_card', card_id=card['id']) }}" class="btn btn-outline">Back to Card</a>
+    </div>
+</body>
+</html>

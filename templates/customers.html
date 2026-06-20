@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Customers - Loyalty Cards{% endblock %}
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+    <h1 style="margin-bottom:0;">Customers</h1>
+    <a href="{{ url_for('new_customer') }}" class="btn btn-primary">+ New Customer</a>
+</div>
+
+<form class="search-bar" method="GET">
+    <input type="text" name="q" value="{{ search }}" placeholder="Search by name, phone, or email...">
+    <button type="submit" class="btn btn-primary">Search</button>
+    {% if search %}
+    <a href="{{ url_for('customers') }}" class="btn btn-outline">Clear</a>
+    {% endif %}
+</form>
+
+<div class="card">
+    {% if customers %}
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Phone</th>
+                <th>Email</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in customers %}
+            <tr>
+                <td><a href="{{ url_for('view_customer', customer_id=c['id']) }}" style="color:var(--primary);font-weight:600;text-decoration:none;">{{ c['first_name'] }} {{ c['last_name'] }}</a></td>
+                <td>{{ c['phone'] or '-' }}</td>
+                <td>{{ c['email'] or '-' }}</td>
+                <td><a href="{{ url_for('view_customer', customer_id=c['id']) }}" class="btn btn-outline btn-sm">View</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        {% if search %}
+        No customers found for "{{ search }}"
+        {% else %}
+        No customers yet. Add your first customer to get started!
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

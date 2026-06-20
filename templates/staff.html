@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Staff - Loyalty Cards{% endblock %}
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+    <h1 style="margin-bottom:0;">Staff Members</h1>
+    <a href="{{ url_for('new_staff') }}" class="btn btn-primary">+ Add Staff</a>
+</div>
+<div class="card">
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Username</th>
+                <th>Role</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in staff %}
+            <tr>
+                <td>{{ s['name'] }}</td>
+                <td>{{ s['username'] }}</td>
+                <td><span class="badge {{ 'badge-complete' if s['is_admin'] else 'badge-active' }}">{{ 'Admin' if s['is_admin'] else 'Staff' }}</span></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Card {{ card['card_number'] }} - Loyalty Cards{% endblock %}
+{% block content %}
+<h1>Card {{ card['card_number'] }}</h1>
+
+<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <span class="badge badge-{{ status_class }}" style="font-size:0.9rem;padding:6px 14px;">{{ status_text }}</span>
+        <a href="{{ url_for('view_customer', customer_id=customer['id']) }}" class="btn btn-outline btn-sm">View Customer</a>
+    </div>
+
+    <div class="detail-row">
+        <span class="detail-label">Customer</span>
+        <span class="detail-value">{{ customer['first_name'] }} {{ customer['last_name'] }}</span>
+    </div>
+    <div class="detail-row">
+        <span class="detail-label">Phone</span>
+        <span class="detail-value">{{ customer['phone'] or '-' }}</span>
+    </div>
+    <div class="detail-row">
+        <span class="detail-label">Issued</span>
+        <span class="detail-value">{{ card['issued_at'][:10] }}</span>
+    </div>
+    <div class="detail-row">
+        <span class="detail-label">Expires</span>
+        <span class="detail-value">{{ card['expires_at'][:10] }}</span>
+    </div>
+    <div class="detail-row">
+        <span class="detail-label">Stamps</span>
+        <span class="detail-value">{{ card['stamps_collected'] }} / {{ card['stamps_required'] }}</span>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Stamp Progress</h2>
+    <div class="stamp-track">
+        {% for i in range(card['stamps_required']) %}
+        <div class="stamp-dot {{ 'filled' if i < card['stamps_collected'] else '' }}">{{ i + 1 }}</div>
+        {% endfor %}
+    </div>
+
+    {% if status_class == 'active' and card['stamps_collected'] < card['stamps_required'] %}
+    <div class="actions" style="margin-top:20px;">
+        <form method="POST" action="{{ url_for('add_stamp', card_id=card['id']) }}">
+            <button type="submit" class="btn btn-primary">+ Add Digital Stamp</button>
+        </form>
+        <form method="POST" action="{{ url_for('print_stamp', card_id=card['id']) }}">
+            <button type="submit" class="btn btn-success">Print QR Stamp Ticket</button>
+        </form>
+    </div>
+    {% elif status_class == 'complete' %}
+    <form method="POST" action="{{ url_for('redeem_reward', card_id=card['id']) }}" style="margin-top:20px;">
+        <button type="submit" class="btn btn-success" style="font-size:1rem;padding:12px 24px;">Redeem Reward</button>
+    </form>
+    {% endif %}
+</div>
+
+{% if stamps %}
+<div class="card">
+    <h2>Stamp History</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Issued</th>
+                <th>QR Code</th>
+                <th>Status</th>
+                <th>Scanned</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in stamps %}
+            <tr>
+                <td>{{ loop.revindex }}</td>
+                <td>{{ s['issued_at'][:16] }}</td>
+                <td style="font-family:monospace;font-size:0.8rem;">{{ s['qr_token'][:12] }}...</td>
+                <td><span class="badge {{ 'badge-used' if s['is_used'] else 'badge-active' }}">{{ 'Verified' if s['is_used'] else 'Pending' }}</span></td>
+                <td>{{ s['scanned_at'][:16] if s['scanned_at'] else '-' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Issue Card - Loyalty Cards{% endblock %}
+{% block content %}
+<h1>Issue New Card</h1>
+<div class="card">
+    <div class="detail-row">
+        <span class="detail-label">Customer</span>
+        <span class="detail-value">{{ customer['first_name'] }} {{ customer['last_name'] }}</span>
+    </div>
+    <div class="detail-row">
+        <span class="detail-label">Expiry Rule</span>
+        <span class="detail-value">10 weeks from today</span>
+    </div>
+    <div class="detail-row">
+        <span class="detail-label">Expires On</span>
+        <span class="detail-value" style="color:var(--primary);">{{ expiry_date }}</span>
+    </div>
+    <div class="detail-row">
+        <span class="detail-label">Stamps Required</span>
+        <span class="detail-value">10</span>
+    </div>
+    <form method="POST" style="margin-top:20px;">
+        <div class="actions">
+            <button type="submit" class="btn btn-success">Issue Card</button>
+            <a href="{{ url_for('view_customer', customer_id=customer['id']) }}" class="btn btn-outline">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

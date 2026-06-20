@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}{{ customer['first_name'] }} {{ customer['last_name'] }} - Loyalty Cards{% endblock %}
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+    <h1 style="margin-bottom:0;">{{ customer['first_name'] }} {{ customer['last_name'] }}</h1>
+    <a href="{{ url_for('edit_customer', customer_id=customer['id']) }}" class="btn btn-outline btn-sm">Edit</a>
+</div>
+
+<div class="card">
+    <div class="detail-row">
+        <span class="detail-label">Phone</span>
+        <span class="detail-value">{{ customer['phone'] or 'Not provided' }}</span>
+    </div>
+    <div class="detail-row">
+        <span class="detail-label">Email</span>
+        <span class="detail-value">{{ customer['email'] or 'Not provided' }}</span>
+    </div>
+    <div class="detail-row">
+        <span class="detail-label">Date of Birth</span>
+        <span class="detail-value">{{ customer['dob'] or 'Not provided' }}</span>
+    </div>
+    <div class="detail-row">
+        <span class="detail-label">Customer Since</span>
+        <span class="detail-value">{{ customer['created_at'][:10] }}</span>
+    </div>
+</div>
+
+<div style="display:flex;justify-content:space-between;align-items:center;margin:24px 0 16px;">
+    <h2 style="margin-bottom:0;">Loyalty Cards</h2>
+    <a href="{{ url_for('issue_card', customer_id=customer['id']) }}" class="btn btn-primary btn-sm">+ Issue New Card</a>
+</div>
+
+{% if cards %}
+    {% for card in cards %}
+    <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <div>
+                <strong style="font-size:1.1rem;">{{ card['card_number'] }}</strong>
+                <span class="badge badge-{{ card['status_class'] }}" style="margin-left:8px;">{{ card['status_text'] }}</span>
+            </div>
+            <a href="{{ url_for('view_card', card_id=card['id']) }}" class="btn btn-outline btn-sm">View Card</a>
+        </div>
+        <div class="stamp-track">
+            {% for i in range(card['stamps_required']) %}
+            <div class="stamp-dot {{ 'filled' if i < card['stamps_collected'] else '' }}">{{ i + 1 }}</div>
+            {% endfor %}
+        </div>
+        <div style="font-size:0.85rem;color:var(--text-light);">
+            Issued: {{ card['issued_at'][:10] }} &middot; Expires: {{ card['expires_at'][:10] }} &middot; Stamps: {{ card['stamps_collected'] }}/{{ card['stamps_required'] }}
+        </div>
+    </div>
+    {% endfor %}
+{% else %}
+    <div class="card empty-state">
+        No cards issued yet. Issue one to start collecting stamps!
+    </div>
+{% endif %}
+{% endblock %}
