@@ -40,16 +40,16 @@
                 <th>Time</th>
                 <th>Customer</th>
                 <th>Card</th>
-                <th>Status</th>
+                <th>Staff</th>
             </tr>
         </thead>
         <tbody>
             {% for stamp in recent_stamps %}
             <tr>
-                <td>{{ stamp['issued_at'][:16] }}</td>
+                <td>{{ stamp['stamped_at'][:16] }}</td>
                 <td>{{ stamp['customer_name'] }}</td>
                 <td>{{ stamp['card_number'] }}</td>
-                <td><span class="badge {{ 'badge-used' if stamp['is_used'] else 'badge-active' }}">{{ 'Verified' if stamp['is_used'] else 'Pending' }}</span></td>
+                <td>{{ stamp['stamped_by'] or '-' }}</td>
             </tr>
             {% endfor %}
         </tbody>

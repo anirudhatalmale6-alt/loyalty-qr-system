@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Print Card - {{ card['card_number'] }}</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #F8F9FD; }
+        .print-card {
+            max-width: 350px;
+            margin: 20px auto;
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.1);
+            border: 2px dashed #DDD;
+        }
+        .card-top {
+            background: linear-gradient(135deg, #6C5CE7 0%, #5A4BD1 100%);
+            padding: 20px 24px;
+            color: white;
+            text-align: center;
+        }
+        .card-top .brand {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            opacity: 0.8;
+            margin-bottom: 8px;
+        }
+        .card-top .name {
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+        .card-top .number {
+            font-size: 0.8rem;
+            opacity: 0.7;
+            margin-top: 4px;
+            font-family: monospace;
+        }
+        .card-middle {
+            padding: 24px;
+            text-align: center;
+        }
+        .card-middle img { border-radius: 8px; }
+        .card-middle .hint {
+            font-size: 0.8rem;
+            color: #636E72;
+            margin-top: 8px;
+        }
+        .stamp-boxes {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+            padding: 0 24px;
+            margin-bottom: 16px;
+        }
+        .stamp-box {
+            aspect-ratio: 1;
+            border: 2px solid #E8E8EF;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #B2BEC3;
+        }
+        .card-bottom {
+            background: #F8F9FD;
+            padding: 14px 24px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            color: #636E72;
+            border-top: 1px solid #E8E8EF;
+        }
+        .card-bottom strong { color: #2D3436; }
+        .print-actions {
+            margin: 20px auto;
+            max-width: 350px;
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+        }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            color: white;
+        }
+        .btn-primary { background: #6C5CE7; }
+        .btn-outline { background: transparent; border: 2px solid #6C5CE7; color: #6C5CE7; }
+        @media print {
+            body { background: white; }
+            .print-actions { display: none; }
+            .print-card { box-shadow: none; margin: 0 auto; }
+        }
+    </style>
+</head>
+<body>
+    <div class="print-card">
+        <div class="card-top">
+            <div class="brand">Loyalty Card</div>
+            <div class="name">{{ customer['first_name'] }} {{ customer['last_name'] }}</div>
+            <div class="number">{{ card['card_number'] }}</div>
+        </div>
+        <div class="card-middle">
+            <img src="data:image/png;base64,{{ qr_b64 }}" alt="QR Code" width="200" height="200">
+            <p class="hint">Present this QR code at each visit</p>
+        </div>
+        <div class="stamp-boxes">
+            {% for i in range(card['stamps_required']) %}
+            <div class="stamp-box">{{ i + 1 }}</div>
+            {% endfor %}
+        </div>
+        <div class="card-bottom">
+            <div>Expires<br><strong>{{ expires_at }}</strong></div>
+            <div style="text-align:right;">Stamps needed<br><strong>{{ card['stamps_required'] }}</strong></div>
+        </div>
+    </div>
+    <div class="print-actions">
+        <button onclick="window.print()" class="btn btn-primary">Print Card</button>
+        <a href="{{ url_for('view_card', card_id=card['id']) }}" class="btn btn-outline">Back</a>
+    </div>
+</body>
+</html>

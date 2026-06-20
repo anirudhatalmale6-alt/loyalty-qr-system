@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>{% if found %}{{ customer['first_name'] }}'s Loyalty Card{% else %}Card Not Found{% endif %}</title>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#6C5CE7">
+    <link rel="manifest" href="data:application/json,{{ '{' }}&quot;name&quot;:&quot;Loyalty Card&quot;,&quot;short_name&quot;:&quot;Loyalty&quot;,&quot;display&quot;:&quot;standalone&quot;,&quot;background_color&quot;:&quot;%236C5CE7&quot;,&quot;theme_color&quot;:&quot;%236C5CE7&quot;{{ '}' }}">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #6C5CE7 0%, #A29BFE 50%, #74B9FF 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .wallet-card {
+            max-width: 380px;
+            width: 100%;
+            background: white;
+            border-radius: 24px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .card-header {
+            background: linear-gradient(135deg, #6C5CE7 0%, #5A4BD1 100%);
+            padding: 24px;
+            color: white;
+        }
+        .card-header .brand {
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            opacity: 0.8;
+            margin-bottom: 12px;
+        }
+        .card-header .customer-name {
+            font-size: 1.4rem;
+            font-weight: 700;
+        }
+        .card-header .card-num {
+            font-size: 0.85rem;
+            opacity: 0.7;
+            margin-top: 4px;
+            font-family: monospace;
+        }
+        .card-body { padding: 24px; }
+        .stamp-track {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin: 8px 0 20px;
+        }
+        .stamp-dot {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 700;
+            border: 2px solid #E8E8EF;
+            color: #B2BEC3;
+            background: #F8F9FD;
+        }
+        .stamp-dot.filled {
+            background: #6C5CE7;
+            border-color: #6C5CE7;
+            color: white;
+        }
+        .progress-label {
+            text-align: center;
+            font-size: 0.9rem;
+            color: #636E72;
+            margin-bottom: 20px;
+        }
+        .progress-label strong { color: #6C5CE7; }
+        .qr-section {
+            text-align: center;
+            padding: 16px 0;
+        }
+        .qr-section img {
+            border-radius: 12px;
+        }
+        .qr-hint {
+            font-size: 0.8rem;
+            color: #B2BEC3;
+            margin-top: 8px;
+        }
+        .card-footer {
+            background: #F8F9FD;
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            color: #636E72;
+            border-top: 1px solid #E8E8EF;
+        }
+        .card-footer strong { color: #2D3436; }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-top: 8px;
+        }
+        .status-active { background: #E8F8F5; color: #00B894; }
+        .status-expired { background: #FDECEA; color: #E17055; }
+        .status-complete { background: #FFF3E0; color: #E67E22; }
+        .status-redeemed { background: #E8EAF6; color: #5C6BC0; }
+        .not-found {
+            text-align: center;
+            color: white;
+            padding: 40px;
+        }
+        .not-found h1 { font-size: 1.5rem; margin-bottom: 8px; }
+        .save-hint {
+            text-align: center;
+            margin-top: 16px;
+            font-size: 0.8rem;
+            color: rgba(255,255,255,0.7);
+        }
+    </style>
+</head>
+<body>
+    {% if found %}
+    <div>
+        <div class="wallet-card">
+            <div class="card-header">
+                <div class="brand">Loyalty Card</div>
+                <div class="customer-name">{{ customer['first_name'] }} {{ customer['last_name'] }}</div>
+                <div class="card-num">{{ card['card_number'] }}</div>
+                <span class="status-badge status-{{ status_class }}">{{ status_text }}</span>
+            </div>
+            <div class="card-body">
+                <div class="stamp-track">
+                    {% for i in range(card['stamps_required']) %}
+                    <div class="stamp-dot {{ 'filled' if i < card['stamps_collected'] else '' }}">{{ i + 1 }}</div>
+                    {% endfor %}
+                </div>
+                <p class="progress-label"><strong>{{ card['stamps_collected'] }}</strong> of <strong>{{ card['stamps_required'] }}</strong> stamps collected</p>
+
+                {% if status_class != 'expired' and status_class != 'redeemed' %}
+                <div class="qr-section">
+                    <img src="data:image/png;base64,{{ qr_b64 }}" alt="QR Code" width="180" height="180">
+                    <p class="qr-hint">Show this to staff when you visit</p>
+                </div>
+                {% endif %}
+            </div>
+            <div class="card-footer">
+                <div>Expires<br><strong>{{ expires_at }}</strong></div>
+                <div style="text-align:right;">Stamps<br><strong>{{ card['stamps_collected'] }}/{{ card['stamps_required'] }}</strong></div>
+            </div>
+        </div>
+        <p class="save-hint">Tip: Add this page to your home screen for quick access</p>
+    </div>
+    {% else %}
+    <div class="not-found">
+        <h1>Card Not Found</h1>
+        <p>This loyalty card could not be found. It may have been removed.</p>
+    </div>
+    {% endif %}
+</body>
+</html>

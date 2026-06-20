@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stamp Verification</title>
+    <title>Scan Card</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -13,10 +13,11 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            padding: 20px;
         }
         .result-card {
-            max-width: 400px;
-            width: 90%;
+            max-width: 420px;
+            width: 100%;
             background: white;
             border-radius: 20px;
             padding: 40px 30px;
@@ -33,8 +34,9 @@
             font-size: 2rem;
             margin: 0 auto 20px;
         }
-        .icon-valid { background: #E8F8F5; color: #00B894; }
-        .icon-used { background: #FFF3E0; color: #E67E22; }
+        .icon-found { background: #E8F0FE; color: #6C5CE7; }
+        .icon-stamped { background: #E8F8F5; color: #00B894; }
+        .icon-redeemed { background: #F0EDFF; color: #6C5CE7; }
         .icon-expired { background: #FDECEA; color: #E17055; }
         .icon-invalid { background: #FDECEA; color: #E17055; }
         h1 { font-size: 1.5rem; margin-bottom: 8px; color: #2D3436; }
@@ -44,7 +46,7 @@
             border-radius: 12px;
             padding: 16px;
             text-align: left;
-            margin-top: 16px;
+            margin: 16px 0;
         }
         .info-row {
             display: flex;
@@ -54,50 +56,149 @@
         }
         .info-label { color: #636E72; }
         .info-value { font-weight: 600; color: #2D3436; }
+        .stamp-track {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin: 16px 0;
+        }
+        .stamp-dot {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            font-weight: 700;
+            border: 2px solid #E8E8EF;
+            color: #B2BEC3;
+            background: #F5F5F5;
+        }
+        .stamp-dot.filled {
+            background: #6C5CE7;
+            border-color: #6C5CE7;
+            color: white;
+        }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 12px 28px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            color: white;
+            margin: 4px;
+        }
+        .btn-stamp { background: #6C5CE7; }
+        .btn-stamp:hover { background: #5A4BD1; }
+        .btn-redeem { background: #00B894; }
+        .btn-redeem:hover { background: #00A384; }
+        .btn-outline { background: transparent; border: 2px solid #6C5CE7; color: #6C5CE7; }
+        .btn-back { background: transparent; border: 2px solid #DDD; color: #636E72; font-size: 0.85rem; padding: 8px 16px; margin-top: 12px; }
     </style>
 </head>
 <body>
     <div class="result-card">
-        {% if status == 'valid' %}
-        <div class="icon icon-valid">&#10003;</div>
-        <h1>Stamp Verified!</h1>
-        {% elif status == 'used' %}
-        <div class="icon icon-used">&#9888;</div>
-        <h1>Already Used</h1>
+        {% if status == 'found' %}
+        <div class="icon icon-found">&#9733;</div>
+        <h1>{{ customer['first_name'] }} {{ customer['last_name'] }}</h1>
+        <p class="message">{{ card['card_number'] }}</p>
+
+        <div class="stamp-track">
+            {% for i in range(card['stamps_required']) %}
+            <div class="stamp-dot {{ 'filled' if i < card['stamps_collected'] else '' }}">{{ i + 1 }}</div>
+            {% endfor %}
+        </div>
+
+        <div class="info-box">
+            <div class="info-row">
+                <span class="info-label">Stamps</span>
+                <span class="info-value">{{ card['stamps_collected'] }} / {{ card['stamps_required'] }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Status</span>
+                <span class="info-value">{{ status_text }}</span>
+            </div>
+        </div>
+
+        {% if can_stamp %}
+        <form method="POST" action="{{ url_for('stamp_card', token=card['qr_token']) }}">
+            <button type="submit" class="btn btn-stamp">+ Add Stamp</button>
+        </form>
+        {% elif can_redeem %}
+        <form method="POST" action="{{ url_for('redeem_from_scan', token=card['qr_token']) }}">
+            <button type="submit" class="btn btn-redeem">Redeem Reward</button>
+        </form>
+        {% endif %}
+
+        {% elif status == 'stamped' %}
+        <div class="icon icon-stamped">&#10003;</div>
+        <h1>Stamp Added!</h1>
+        <p class="message">{{ message }}</p>
+
+        <div class="stamp-track">
+            {% for i in range(card['stamps_required']) %}
+            <div class="stamp-dot {{ 'filled' if i < card['stamps_collected'] else '' }}">{{ i + 1 }}</div>
+            {% endfor %}
+        </div>
+
+        <div class="info-box">
+            <div class="info-row">
+                <span class="info-label">Customer</span>
+                <span class="info-value">{{ customer['first_name'] }} {{ customer['last_name'] }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Card</span>
+                <span class="info-value">{{ card['card_number'] }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Progress</span>
+                <span class="info-value">{{ card['stamps_collected'] }} / {{ card['stamps_required'] }}</span>
+            </div>
+        </div>
+
+        {% if card['stamps_collected'] >= card['stamps_required'] and not card['reward_redeemed'] %}
+        <p style="color:#E67E22;font-weight:600;margin:12px 0;">All stamps collected! Ready to redeem.</p>
+        <form method="POST" action="{{ url_for('redeem_from_scan', token=card['qr_token']) }}">
+            <button type="submit" class="btn btn-redeem">Redeem Reward Now</button>
+        </form>
+        {% endif %}
+
+        {% elif status == 'redeemed' %}
+        <div class="icon icon-redeemed">&#9733;</div>
+        <h1>Reward Redeemed!</h1>
+        <p class="message">{{ customer['first_name'] }}'s reward has been redeemed.</p>
+
         {% elif status == 'expired' %}
         <div class="icon icon-expired">&#10007;</div>
         <h1>Card Expired</h1>
-        {% else %}
-        <div class="icon icon-invalid">&#10007;</div>
-        <h1>Invalid Code</h1>
-        {% endif %}
-
         <p class="message">{{ message }}</p>
-
         {% if customer %}
         <div class="info-box">
             <div class="info-row">
                 <span class="info-label">Customer</span>
                 <span class="info-value">{{ customer['first_name'] }} {{ customer['last_name'] }}</span>
             </div>
-            {% if card %}
             <div class="info-row">
                 <span class="info-label">Card</span>
                 <span class="info-value">{{ card['card_number'] }}</span>
             </div>
-            {% if stamp_number %}
-            <div class="info-row">
-                <span class="info-label">Stamp</span>
-                <span class="info-value">{{ stamp_number }} / {{ stamps_required }}</span>
-            </div>
-            {% endif %}
-            {% endif %}
         </div>
         {% endif %}
 
-        {% if status == 'used' and scanned_at %}
-        <p style="font-size:0.8rem;color:#B2BEC3;margin-top:16px;">Previously scanned: {{ scanned_at[:16] }}</p>
+        {% else %}
+        <div class="icon icon-invalid">&#10007;</div>
+        <h1>Invalid Code</h1>
+        <p class="message">{{ message }}</p>
         {% endif %}
+
+        <a href="/dashboard" class="btn btn-back">Back to Dashboard</a>
     </div>
 </body>
 </html>

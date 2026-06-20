@@ -32,6 +32,18 @@
 </div>
 
 <div class="card">
+    <h2>Customer's QR Code</h2>
+    <p style="font-size:0.85rem;color:var(--text-light);margin-bottom:16px;">This is the card's permanent QR code. Print it for the customer or share the digital link.</p>
+    <div style="text-align:center;margin:16px 0;">
+        <img src="data:image/png;base64,{{ qr_b64 }}" alt="QR Code" width="200" height="200" style="border-radius:8px;">
+    </div>
+    <div class="actions" style="justify-content:center;">
+        <a href="{{ url_for('print_card', card_id=card['id']) }}" class="btn btn-primary">Print Physical Card</a>
+        <a href="{{ card_url }}" target="_blank" class="btn btn-outline">Customer's Digital Card</a>
+    </div>
+</div>
+
+<div class="card">
     <h2>Stamp Progress</h2>
     <div class="stamp-track">
         {% for i in range(card['stamps_required']) %}
@@ -42,12 +54,10 @@
     {% if status_class == 'active' and card['stamps_collected'] < card['stamps_required'] %}
     <div class="actions" style="margin-top:20px;">
         <form method="POST" action="{{ url_for('add_stamp', card_id=card['id']) }}">
-            <button type="submit" class="btn btn-primary">+ Add Digital Stamp</button>
-        </form>
-        <form method="POST" action="{{ url_for('print_stamp', card_id=card['id']) }}">
-            <button type="submit" class="btn btn-success">Print QR Stamp Ticket</button>
+            <button type="submit" class="btn btn-primary">+ Add Stamp Manually</button>
         </form>
     </div>
+    <p style="font-size:0.8rem;color:var(--text-light);margin-top:8px;">Normally stamps are added by scanning the customer's QR code. Use this button only if needed.</p>
     {% elif status_class == 'complete' %}
     <form method="POST" action="{{ url_for('redeem_reward', card_id=card['id']) }}" style="margin-top:20px;">
         <button type="submit" class="btn btn-success" style="font-size:1rem;padding:12px 24px;">Redeem Reward</button>
@@ -62,20 +72,16 @@
         <thead>
             <tr>
                 <th>#</th>
-                <th>Issued</th>
-                <th>QR Code</th>
-                <th>Status</th>
-                <th>Scanned</th>
+                <th>Date</th>
+                <th>Stamped By</th>
             </tr>
         </thead>
         <tbody>
             {% for s in stamps %}
             <tr>
                 <td>{{ loop.revindex }}</td>
-                <td>{{ s['issued_at'][:16] }}</td>
-                <td style="font-family:monospace;font-size:0.8rem;">{{ s['qr_token'][:12] }}...</td>
-                <td><span class="badge {{ 'badge-used' if s['is_used'] else 'badge-active' }}">{{ 'Verified' if s['is_used'] else 'Pending' }}</span></td>
-                <td>{{ s['scanned_at'][:16] if s['scanned_at'] else '-' }}</td>
+                <td>{{ s['stamped_at'][:16] }}</td>
+                <td>{{ s['stamped_by'] or '-' }}</td>
             </tr>
             {% endfor %}
         </tbody>

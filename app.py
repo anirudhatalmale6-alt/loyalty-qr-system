@@ -9,7 +9,7 @@ from functools import wraps
 import qrcode
 from flask import (
     Flask, render_template, request, redirect, url_for,
-    flash, jsonify, session, g, send_file
+    flash, jsonify, session, g, send_file, make_response
 )
 
 app = Flask(__name__)
@@ -57,6 +57,7 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             customer_id INTEGER NOT NULL,
             card_number TEXT UNIQUE NOT NULL,
+            qr_token TEXT UNIQUE NOT NULL,
             issued_at TEXT NOT NULL DEFAULT (datetime('now')),
             expires_at TEXT NOT NULL,
             stamps_collected INTEGER NOT NULL DEFAULT 0,
@@ -70,10 +71,8 @@ def init_db():
         CREATE TABLE IF NOT EXISTS stamps (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             card_id INTEGER NOT NULL,
-            qr_token TEXT UNIQUE NOT NULL,
-            issued_at TEXT NOT NULL DEFAULT (datetime('now')),
-            scanned_at TEXT,
-            is_used INTEGER NOT NULL DEFAULT 0,
+            stamped_by TEXT,
+            stamped_at TEXT NOT NULL DEFAULT (datetime('now')),
             FOREIGN KEY (card_id) REFERENCES cards(id)
         );
 
@@ -90,10 +89,9 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_customers_email ON customers(email);
         CREATE INDEX IF NOT EXISTS idx_cards_customer ON cards(customer_id);
         CREATE INDEX IF NOT EXISTS idx_cards_number ON cards(card_number);
-        CREATE INDEX IF NOT EXISTS idx_stamps_token ON stamps(qr_token);
+        CREATE INDEX IF NOT EXISTS idx_cards_qr ON cards(qr_token);
         CREATE INDEX IF NOT EXISTS idx_stamps_card ON stamps(card_id);
     """)
-    # Create default admin if none exists
     existing = db.execute("SELECT id FROM staff WHERE is_admin=1").fetchone()
     if not existing:
         db.execute(
@@ -170,6 +168,9 @@ def login():
             session['staff_id'] = staff['id']
             session['staff_name'] = staff['name']
             session['is_admin'] = bool(staff['is_admin'])
+            next_url = request.args.get('next')
+            if next_url:
+                return redirect(next_url)
             return redirect(url_for('dashboard'))
         flash('Invalid username or PIN', 'error')
     return render_template('login.html')
@@ -192,15 +193,15 @@ def dashboard():
         "SELECT COUNT(*) FROM cards WHERE is_active=1 AND expires_at < ?", (now,)
     ).fetchone()[0]
     stamps_today = db.execute(
-        "SELECT COUNT(*) FROM stamps WHERE date(issued_at)=date('now')"
+        "SELECT COUNT(*) FROM stamps WHERE date(stamped_at)=date('now')"
     ).fetchone()[0]
     recent_stamps = db.execute("""
-        SELECT s.issued_at, c.first_name || ' ' || c.last_name as customer_name,
-               cd.card_number, s.is_used
+        SELECT s.stamped_at, c.first_name || ' ' || c.last_name as customer_name,
+               cd.card_number, s.stamped_by
         FROM stamps s
         JOIN cards cd ON s.card_id = cd.id
         JOIN customers c ON cd.customer_id = c.id
-        ORDER BY s.issued_at DESC LIMIT 10
+        ORDER BY s.stamped_at DESC LIMIT 10
     """).fetchall()
     return render_template('dashboard.html',
                            total_customers=total_customers,
@@ -252,7 +253,18 @@ def new_customer():
         customer_id = cursor.lastrowid
 
         if request.form.get('issue_card'):
-            return redirect(url_for('issue_card', customer_id=customer_id))
+            now = datetime.utcnow()
+            expires = now + timedelta(weeks=EXPIRY_WEEKS)
+            card_num = generate_card_number()
+            qr_token = generate_qr_token()
+            db.execute(
+                "INSERT INTO cards (customer_id, card_number, qr_token, issued_at, expires_at, stamps_required) VALUES (?, ?, ?, ?, ?, ?)",
+                (customer_id, card_num, qr_token, now.isoformat(), expires.isoformat(), STAMPS_FOR_REWARD)
+            )
+            db.commit()
+            card = db.execute("SELECT * FROM cards WHERE card_number=?", (card_num,)).fetchone()
+            flash(f'Customer added and card {card_num} issued!', 'success')
+            return redirect(url_for('view_card', card_id=card['id']))
 
         flash('Customer added successfully', 'success')
         return redirect(url_for('view_customer', customer_id=customer_id))
@@ -319,13 +331,15 @@ def issue_card(customer_id):
         now = datetime.utcnow()
         expires = now + timedelta(weeks=EXPIRY_WEEKS)
         card_num = generate_card_number()
+        qr_token = generate_qr_token()
         db.execute(
-            "INSERT INTO cards (customer_id, card_number, issued_at, expires_at, stamps_required) VALUES (?, ?, ?, ?, ?)",
-            (customer_id, card_num, now.isoformat(), expires.isoformat(), STAMPS_FOR_REWARD)
+            "INSERT INTO cards (customer_id, card_number, qr_token, issued_at, expires_at, stamps_required) VALUES (?, ?, ?, ?, ?, ?)",
+            (customer_id, card_num, qr_token, now.isoformat(), expires.isoformat(), STAMPS_FOR_REWARD)
         )
         db.commit()
+        card = db.execute("SELECT * FROM cards WHERE card_number=?", (card_num,)).fetchone()
         flash(f'Card {card_num} issued -- expires {expires.strftime("%d %b %Y")}', 'success')
-        return redirect(url_for('view_customer', customer_id=customer_id))
+        return redirect(url_for('view_card', card_id=card['id']))
     expiry_date = (datetime.utcnow() + timedelta(weeks=EXPIRY_WEEKS)).strftime('%d %b %Y')
     return render_template('issue_card.html', customer=customer, expiry_date=expiry_date)
 
@@ -340,12 +354,144 @@ def view_card(card_id):
         return redirect(url_for('dashboard'))
     customer = db.execute("SELECT * FROM customers WHERE id=?", (card['customer_id'],)).fetchone()
     stamps = db.execute(
-        "SELECT * FROM stamps WHERE card_id=? ORDER BY issued_at DESC", (card_id,)
+        "SELECT * FROM stamps WHERE card_id=? ORDER BY stamped_at DESC", (card_id,)
     ).fetchall()
     status_class, status_text = card_status(card)
+    card_url = request.host_url.rstrip('/') + url_for('customer_card', token=card['qr_token'])
+    qr_b64 = make_qr_base64(card_url, size=8)
     return render_template('card_detail.html', card=card, customer=customer,
-                           stamps=stamps, status_class=status_class, status_text=status_text)
+                           stamps=stamps, status_class=status_class, status_text=status_text,
+                           qr_b64=qr_b64, card_url=card_url)
 
+
+@app.route('/cards/<int:card_id>/print')
+@login_required
+def print_card(card_id):
+    db = get_db()
+    card = db.execute("SELECT * FROM cards WHERE id=?", (card_id,)).fetchone()
+    if not card:
+        flash('Card not found', 'error')
+        return redirect(url_for('dashboard'))
+    customer = db.execute("SELECT * FROM customers WHERE id=?", (card['customer_id'],)).fetchone()
+    status_class, status_text = card_status(card)
+    card_url = request.host_url.rstrip('/') + url_for('customer_card', token=card['qr_token'])
+    qr_b64 = make_qr_base64(card_url, size=10)
+    expires_at = datetime.fromisoformat(card['expires_at']).strftime('%d %b %Y')
+    return render_template('print_card.html', card=card, customer=customer,
+                           qr_b64=qr_b64, expires_at=expires_at)
+
+
+# --- Scan / Stamp routes (staff scans customer's QR to add stamp) ---
+
+@app.route('/scan/<token>')
+def scan_card(token):
+    db = get_db()
+    card = db.execute("SELECT * FROM cards WHERE qr_token=?", (token,)).fetchone()
+    if not card:
+        return render_template('scan_result.html', status='invalid',
+                               message='This QR code is not recognised.')
+    customer = db.execute("SELECT * FROM customers WHERE id=?", (card['customer_id'],)).fetchone()
+    status_class, status_text = card_status(card)
+
+    if status_class == 'expired':
+        return render_template('scan_result.html', status='expired',
+                               message='This card has expired.',
+                               customer=customer, card=card, status_text=status_text)
+    if status_class == 'inactive':
+        return render_template('scan_result.html', status='expired',
+                               message='This card has been deactivated.',
+                               customer=customer, card=card, status_text=status_text)
+
+    if 'staff_id' not in session:
+        return redirect(url_for('login', next=url_for('scan_card', token=token)))
+
+    return render_template('scan_result.html', status='found',
+                           message='Card found! Add a stamp?',
+                           customer=customer, card=card, status_text=status_text,
+                           can_stamp=status_class == 'active',
+                           can_redeem=status_class == 'complete')
+
+
+@app.route('/scan/<token>/stamp', methods=['POST'])
+@login_required
+def stamp_card(token):
+    db = get_db()
+    card = db.execute("SELECT * FROM cards WHERE qr_token=?", (token,)).fetchone()
+    if not card:
+        flash('Card not found', 'error')
+        return redirect(url_for('dashboard'))
+
+    status_class, _ = card_status(card)
+    if status_class != 'active':
+        flash('Cannot stamp this card', 'error')
+        return redirect(url_for('scan_card', token=token))
+
+    staff_name = session.get('staff_name', 'Unknown')
+    db.execute(
+        "INSERT INTO stamps (card_id, stamped_by, stamped_at) VALUES (?, ?, ?)",
+        (card['id'], staff_name, datetime.utcnow().isoformat())
+    )
+    db.execute(
+        "UPDATE cards SET stamps_collected = stamps_collected + 1 WHERE id=?",
+        (card['id'],)
+    )
+    db.commit()
+
+    updated_card = db.execute("SELECT * FROM cards WHERE id=?", (card['id'],)).fetchone()
+    customer = db.execute("SELECT * FROM customers WHERE id=?", (card['customer_id'],)).fetchone()
+
+    return render_template('scan_result.html', status='stamped',
+                           message=f'Stamp added! ({updated_card["stamps_collected"]}/{updated_card["stamps_required"]})',
+                           customer=customer, card=updated_card,
+                           status_text=f'{updated_card["stamps_collected"]}/{updated_card["stamps_required"]} stamps')
+
+
+@app.route('/scan/<token>/redeem', methods=['POST'])
+@login_required
+def redeem_from_scan(token):
+    db = get_db()
+    card = db.execute("SELECT * FROM cards WHERE qr_token=?", (token,)).fetchone()
+    if not card:
+        flash('Card not found', 'error')
+        return redirect(url_for('dashboard'))
+    if card['stamps_collected'] < card['stamps_required']:
+        flash('Not enough stamps', 'error')
+        return redirect(url_for('scan_card', token=token))
+    if card['reward_redeemed']:
+        flash('Already redeemed', 'error')
+        return redirect(url_for('scan_card', token=token))
+
+    db.execute("UPDATE cards SET reward_redeemed=1 WHERE id=?", (card['id'],))
+    db.commit()
+
+    customer = db.execute("SELECT * FROM customers WHERE id=?", (card['customer_id'],)).fetchone()
+    return render_template('scan_result.html', status='redeemed',
+                           message='Reward redeemed!',
+                           customer=customer, card=card,
+                           status_text='Reward Redeemed')
+
+
+# --- Customer-facing card page (what the QR links to for the customer) ---
+
+@app.route('/card/<token>')
+def customer_card(token):
+    db = get_db()
+    card = db.execute("SELECT * FROM cards WHERE qr_token=?", (token,)).fetchone()
+    if not card:
+        return render_template('customer_card.html', found=False)
+    customer = db.execute("SELECT * FROM customers WHERE id=?", (card['customer_id'],)).fetchone()
+    status_class, status_text = card_status(card)
+    expires_at = datetime.fromisoformat(card['expires_at']).strftime('%d %b %Y')
+    scan_url = request.host_url.rstrip('/') + url_for('scan_card', token=token)
+    qr_b64 = make_qr_base64(scan_url, size=8)
+    return render_template('customer_card.html', found=True,
+                           card=card, customer=customer,
+                           status_class=status_class, status_text=status_text,
+                           expires_at=expires_at, qr_b64=qr_b64,
+                           scan_url=scan_url)
+
+
+# --- Card management from staff view ---
 
 @app.route('/cards/<int:card_id>/add-stamp', methods=['POST'])
 @login_required
@@ -353,9 +499,10 @@ def add_stamp(card_id):
     db = get_db()
     card = db.execute("SELECT * FROM cards WHERE id=?", (card_id,)).fetchone()
     if not card:
-        return jsonify({'error': 'Card not found'}), 404
+        flash('Card not found', 'error')
+        return redirect(url_for('dashboard'))
 
-    status_class, status_text = card_status(card)
+    status_class, _ = card_status(card)
     if status_class == 'expired':
         flash('Cannot add stamp -- card has expired', 'error')
         return redirect(url_for('view_card', card_id=card_id))
@@ -366,92 +513,18 @@ def add_stamp(card_id):
         flash('Card already has all stamps', 'error')
         return redirect(url_for('view_card', card_id=card_id))
 
-    token = generate_qr_token()
+    staff_name = session.get('staff_name', 'Unknown')
     db.execute(
-        "INSERT INTO stamps (card_id, qr_token, is_used) VALUES (?, ?, 0)",
-        (card_id, token)
+        "INSERT INTO stamps (card_id, stamped_by, stamped_at) VALUES (?, ?, ?)",
+        (card_id, staff_name, datetime.utcnow().isoformat())
     )
     db.execute(
         "UPDATE cards SET stamps_collected = stamps_collected + 1 WHERE id=?",
         (card_id,)
     )
     db.commit()
-    flash('Stamp added successfully', 'success')
+    flash('Stamp added!', 'success')
     return redirect(url_for('view_card', card_id=card_id))
-
-
-@app.route('/cards/<int:card_id>/print-stamp', methods=['POST'])
-@login_required
-def print_stamp(card_id):
-    db = get_db()
-    card = db.execute("SELECT * FROM cards WHERE id=?", (card_id,)).fetchone()
-    if not card:
-        flash('Card not found', 'error')
-        return redirect(url_for('dashboard'))
-
-    status_class, _ = card_status(card)
-    if status_class in ('expired', 'inactive'):
-        flash(f'Cannot print stamp -- card is {status_class}', 'error')
-        return redirect(url_for('view_card', card_id=card_id))
-    if card['stamps_collected'] >= card['stamps_required']:
-        flash('Card already has all stamps', 'error')
-        return redirect(url_for('view_card', card_id=card_id))
-
-    customer = db.execute("SELECT * FROM customers WHERE id=?", (card['customer_id'],)).fetchone()
-    token = generate_qr_token()
-    scan_url = request.host_url.rstrip('/') + url_for('scan_qr', token=token)
-    qr_b64 = make_qr_base64(scan_url, size=8)
-
-    db.execute(
-        "INSERT INTO stamps (card_id, qr_token, is_used) VALUES (?, ?, 0)",
-        (card_id, token)
-    )
-    db.execute(
-        "UPDATE cards SET stamps_collected = stamps_collected + 1 WHERE id=?",
-        (card_id,)
-    )
-    db.commit()
-
-    expires_at = datetime.fromisoformat(card['expires_at']).strftime('%d %b %Y')
-    return render_template('print_stamp.html',
-                           customer=customer, card=card,
-                           qr_b64=qr_b64, token=token,
-                           expires_at=expires_at,
-                           stamp_number=card['stamps_collected'] + 1,
-                           stamps_required=card['stamps_required'])
-
-
-@app.route('/scan/<token>')
-def scan_qr(token):
-    db = get_db()
-    stamp = db.execute("SELECT * FROM stamps WHERE qr_token=?", (token,)).fetchone()
-    if not stamp:
-        return render_template('scan_result.html', status='invalid',
-                               message='This QR code is not valid.')
-    if stamp['is_used']:
-        return render_template('scan_result.html', status='used',
-                               message='This stamp has already been used.',
-                               scanned_at=stamp['scanned_at'])
-    card = db.execute("SELECT * FROM cards WHERE id=?", (stamp['card_id'],)).fetchone()
-    customer = db.execute("SELECT * FROM customers WHERE id=?", (card['customer_id'],)).fetchone()
-    status_class, status_text = card_status(card)
-
-    if status_class == 'expired':
-        return render_template('scan_result.html', status='expired',
-                               message='This card has expired.',
-                               customer=customer, card=card)
-
-    db.execute(
-        "UPDATE stamps SET is_used=1, scanned_at=? WHERE id=?",
-        (datetime.utcnow().isoformat(), stamp['id'])
-    )
-    db.commit()
-
-    return render_template('scan_result.html', status='valid',
-                           message='Stamp verified successfully!',
-                           customer=customer, card=card,
-                           stamp_number=card['stamps_collected'],
-                           stamps_required=card['stamps_required'])
 
 
 @app.route('/cards/<int:card_id>/redeem', methods=['POST'])
@@ -474,7 +547,7 @@ def redeem_reward(card_id):
     return redirect(url_for('view_card', card_id=card_id))
 
 
-# --- Staff management (admin only) ---
+# --- Staff management ---
 
 @app.route('/staff')
 @login_required
