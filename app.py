@@ -13,7 +13,7 @@ from flask import (
 )
 
 app = Flask(__name__)
-app.secret_key = os.urandom(32)
+app.secret_key = os.environ.get('SECRET_KEY', 'loyalty-card-dev-key-change-in-production')
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'loyalty.db')
 EXPIRY_WEEKS = 10
